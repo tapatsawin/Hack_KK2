@@ -172,13 +172,13 @@ def analyze_spectrum(intensity_array, target_ppm):
     known_detected = []
     for idx in peaks:
         peak_ppm = target_ppm[idx]
-        intensity_val = normalized_data[idx] # เก็บความสูงไว้ใช้วาดบนกราฟ
+        intensity_val = normalized_data[idx] 
         for known_ppm, substance in KNOWN_METABOLITES.items():
             if abs(peak_ppm - known_ppm) < 0.08:
                 known_detected.append({
                     'สาร': substance, 
                     'ตำแหน่ง (ppm)': round(peak_ppm, 2), 
-                    'Intensity': intensity_val, # นำไปใช้วาดกราฟ (แต่ไม่โชว์ในตาราง)
+                    'Intensity': intensity_val, 
                     'ระดับความมั่นใจ': f"{np.random.randint(92, 99)}%"
                 })
                 break
@@ -262,7 +262,6 @@ if uploaded_file is not None or use_mock:
                     col1, col2 = st.columns(2)
                     with col1:
                         st.success("✅ Engine A: สารเคมีที่รู้จัก")
-                        # แสดงผลในตารางโดยซ่อนคอลัมน์ Intensity เอาไว้ไม่ให้รก
                         display_df = known_df.drop(columns=['Intensity']) if not known_df.empty else known_df
                         st.dataframe(display_df, use_container_width=True, hide_index=True, key=f"df_{idx}")
                     with col2:
@@ -272,22 +271,19 @@ if uploaded_file is not None or use_mock:
                     st.markdown("### 📊 กราฟสัญญาณ (Reconstructed Signal)")
                     fig = go.Figure()
                     
-                    # 1. วาดเส้นกราฟหลัก
                     fig.add_trace(go.Scatter(x=analyzed_df['ppm'], y=analyzed_df['Intensity'], mode='lines', name='สัญญาณ NMR', line=dict(color='#2E86C1', width=1.5)))
                     
-                    # 2. วาดจุดของสารที่รู้จัก (ดาวสีเขียว + ป้ายชื่อสาร) 🌟
                     if not known_df.empty:
                         fig.add_trace(go.Scatter(
                             x=known_df['ตำแหน่ง (ppm)'], 
                             y=known_df['Intensity'], 
                             mode='markers+text', 
                             name='Known Biomarkers', 
-                            text=known_df['สาร'],               # ดึงชื่อสารมาแสดง
-                            textposition="top center",          # ให้ข้อความลอยอยู่เหนือจุด
-                            marker=dict(color='#27AE60', size=9, symbol='star') # ดาวสีเขียว
+                            text=known_df['สาร'],               
+                            textposition="top center",          
+                            marker=dict(color='#27AE60', size=9, symbol='star') 
                         ))
                     
-                    # 3. วาดจุดของสารที่ไม่รู้จัก (กากบาทสีแดง) ❌
                     fig.add_trace(go.Scatter(x=unknowns['ppm'], y=unknowns['Intensity'], mode='markers', name='Unknown', marker=dict(color='#E74C3C', size=6, symbol='x')))
                     
                     fig.update_layout(xaxis_title="Chemical Shift (ppm)", yaxis_title="Intensity (Normalized)", xaxis=dict(autorange="reversed"), template="plotly_white", margin=dict(l=0, r=0, t=30, b=0))
@@ -323,7 +319,14 @@ if uploaded_file is not None or use_mock:
             col1, col2 = st.columns([2, 1])
             with col1:
                 st.subheader("1. Heatmap Data Matrix")
-                st.dataframe(matrix_df.iloc[:, :15].style.format("{:.4f}").background_gradient(cmap='Blues', axis=1), use_container_width=True)
+                preview_df = matrix_df.iloc[:, :15]
+                # 🛡️ ระบบเกราะป้องกันกันแอปพัง หากเซิร์ฟเวอร์โหลด matplotlib ไม่ติด
+                try:
+                    styled_matrix = preview_df.style.format("{:.4f}").background_gradient(cmap='Blues', axis=1)
+                    st.dataframe(styled_matrix, use_container_width=True)
+                except ImportError:
+                    st.dataframe(preview_df.style.format("{:.4f}"), use_container_width=True)
+                    
             with col2:
                 st.subheader("2. ตารางสรุปจุดสังเกตอัตโนมัติ")
                 st.dataframe(pd.DataFrame(summary_list).style.map(lambda v: 'color: #E74C3C; font-weight: bold;' if 'ตรวจสอบด่วน' in str(v) else 'color: #2E86C1;', subset=['สถานะ']), use_container_width=True, hide_index=True)
